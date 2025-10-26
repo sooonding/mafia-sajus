@@ -8,12 +8,27 @@ export type AppConfig = {
     url: string;
     serviceRoleKey: string;
   };
+  clerk: {
+    secretKey: string;
+    publishableKey: string;
+    webhookSigningSecret: string;
+  };
+  gemini: {
+    apiKey: string;
+  };
+  toss: {
+    secretKey: string;
+    clientKey: string;
+    webhookSecret: string;
+  };
 };
 
 export type AppVariables = {
   supabase: SupabaseClient;
   logger: AppLogger;
   config: AppConfig;
+  clerkUserId?: string;
+  userId?: string;
 };
 
 export type AppEnv = {
@@ -26,6 +41,8 @@ export const contextKeys = {
   supabase: 'supabase',
   logger: 'logger',
   config: 'config',
+  clerkUserId: 'clerkUserId',
+  userId: 'userId',
 } as const satisfies Record<keyof AppVariables, keyof AppVariables>;
 
 export const getSupabase = (c: AppContext) =>

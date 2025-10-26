@@ -1,48 +1,102 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { DashboardProvider, useDashboard } from '@/features/dashboard/context/dashboard-context';
+import {
+  useCurrentUser,
+  useUsageInfo,
+  useAnalysisHistory,
+} from '@/features/dashboard/hooks/use-dashboard-data';
+import { DashboardHeader } from '@/features/dashboard/components/dashboard-header';
+import { AnalysisCard } from '@/features/dashboard/components/analysis-card';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { APP_CONFIG } from '@/constants/app';
 
-type DashboardPageProps = {
-  params: Promise<Record<string, never>>;
-};
+function DashboardContent() {
+  const router = useRouter();
+  const { state } = useDashboard();
+  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+  const { data: usageInfo, isLoading: isLoadingUsage } = useUsageInfo();
+  const { data: analysisHistory, isLoading: isLoadingHistory } = useAnalysisHistory(
+    state.currentPage,
+    state.pageSize
+  );
 
-export default function DashboardPage({ params }: DashboardPageProps) {
-  void params;
-  const { user } = useCurrentUser();
+  if (isLoadingUser || isLoadingUsage) {
+    return <div className="container mx-auto py-8">로딩 중...</div>;
+  }
+
+  if (!currentUser || !usageInfo) {
+    return <div className="container mx-auto py-8">사용자 정보를 불러올 수 없습니다.</div>;
+  }
+
+  const canAnalyze = usageInfo.remaining > 0;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold">대시보드</h1>
-        <p className="text-slate-500">
-          {user?.email ?? "알 수 없는 사용자"} 님, 환영합니다.
-        </p>
-      </header>
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <Image
-          alt="대시보드"
-          src="https://picsum.photos/seed/dashboard/960/420"
-          width={960}
-          height={420}
-          className="h-auto w-full object-cover"
-        />
+    <div className="container mx-auto py-8 space-y-8">
+      <DashboardHeader user={currentUser} usage={usageInfo} />
+
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button
+          size="lg"
+          onClick={() => router.push(APP_CONFIG.routes.analysisNew)}
+          disabled={!canAnalyze}
+        >
+          새 분석하기
+        </Button>
+
+        {currentUser.subscriptionTier === 'free' && (
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => router.push(APP_CONFIG.routes.subscription)}
+          >
+            Pro로 업그레이드
+          </Button>
+        )}
       </div>
-      <section className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-lg border border-slate-200 p-4">
-          <h2 className="text-lg font-medium">현재 세션</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Supabase 미들웨어가 세션 쿠키를 자동으로 동기화합니다.
-          </p>
-        </article>
-        <article className="rounded-lg border border-slate-200 p-4">
-          <h2 className="text-lg font-medium">보안 체크</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            보호된 App Router 세그먼트로 라우팅되며, 로그인 사용
-            자만 접근할 수 있습니다.
-          </p>
-        </article>
-      </section>
+
+      {!canAnalyze && (
+        <p className="text-sm text-muted-foreground">
+          {currentUser.subscriptionTier === 'free'
+            ? '무료 체험을 모두 사용하셨습니다. Pro로 업그레이드하여 더 많은 분석을 받아보세요.'
+            : '이번 달 분석 횟수를 모두 사용하셨습니다.'}
+        </p>
+      )}
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold">분석 이력</h2>
+
+        {isLoadingHistory ? (
+          <div>이력 로딩 중...</div>
+        ) : analysisHistory && analysisHistory.data.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {analysisHistory.data.map((analysis) => (
+              <AnalysisCard key={analysis.id} analysis={analysis} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">아직 분석 이력이 없습니다</h3>
+              <p className="text-sm text-muted-foreground">
+                첫 번째 사주 분석을 시작해보세요!
+              </p>
+            </div>
+            <Button onClick={() => router.push(APP_CONFIG.routes.analysisNew)}>
+              새 분석하기
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <DashboardProvider>
+      <DashboardContent />
+    </DashboardProvider>
   );
 }

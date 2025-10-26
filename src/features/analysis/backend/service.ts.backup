@@ -1,0 +1,162 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Analysis, AnalysisHistoryResponse } from './schema';
+import { failure, success, type HandlerResult } from '@/backend/http/response';
+import { AnalysisErrorCode } from './error';
+import type { AnalysisServiceError } from './error';
+import { AnalysisResultSchema, type AnalysisDetailResponse } from './schema';
+
+/**
+ * 분석 이력 조회
+ */
+export async function getAnalysisHistory(
+  supabase: SupabaseClient,
+  userId: string,
+  page: number,
+  limit: number
+): Promise<AnalysisHistoryResponse> {
+  const offset = (page - 1) * limit;
+
+  const { count, error: countError } = await supabase
+    .from('analyses')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (countError) {
+    throw new Error('FAILED_TO_COUNT_ANALYSES');
+  }
+
+  const total = count ?? 0;
+  const totalPages = Math.ceil(total / limit);
+
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new Error('FAILED_TO_FETCH_ANALYSES');
+  }
+
+  return {
+    data: data.map((item) => ({
+      id: item.id,
+      userId: item.user_id,
+      birthDate: item.birth_date,
+      birthTime: item.birth_time,
+      isLunar: item.is_lunar,
+      gender: item.gender,
+      result: item.result,
+      modelUsed: item.model_used,
+      createdAt: item.created_at,
+    })),
+    total,
+    page,
+    totalPages,
+  };
+}
+
+/**
+ * 특정 분석 상세 조회
+ */
+export async function getAnalysisById(
+  supabase: SupabaseClient,
+  userId: string,
+  analysisId: string
+): Promise<Analysis> {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('id', analysisId)
+    .single();
+
+  if (error || !data) {
+    throw new Error('ANALYSIS_NOT_FOUND');
+  }
+
+  if (data.user_id !== userId) {
+    throw new Error('ANALYSIS_FORBIDDEN');
+  }
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    birthDate: data.birth_date,
+    birthTime: data.birth_time,
+    isLunar: data.is_lunar,
+    gender: data.gender,
+    result: data.result,
+    modelUsed: data.model_used,
+    createdAt: data.created_at,
+  };
+}
+
+/**
+ * 분석 상세 조회 (상세보기 페이지용 - HandlerResult 패턴)
+ */
+export async function getAnalysisDetail(
+  supabase: SupabaseClient,
+  analysisId: string,
+  userId: string
+): Promise<HandlerResult<AnalysisDetailResponse, AnalysisServiceError>> {
+  // 1. 분석 조회
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('id', analysisId)
+    .single();
+
+  // 2. 데이터베이스 오류 처리
+  if (error) {
+    return failure(
+      404,
+      AnalysisErrorCode.ANALYSIS_NOT_FOUND,
+      '분석을 찾을 수 없습니다'
+    );
+  }
+
+  // 3. 존재하지 않는 분석
+  if (!data) {
+    return failure(
+      404,
+      AnalysisErrorCode.ANALYSIS_NOT_FOUND,
+      '분석을 찾을 수 없습니다'
+    );
+  }
+
+  // 4. 권한 확인 (본인 분석만 조회 가능)
+  if (data.user_id !== userId) {
+    return failure(
+      403,
+      AnalysisErrorCode.ANALYSIS_FORBIDDEN,
+      '본인의 분석 결과만 조회할 수 있습니다'
+    );
+  }
+
+  // 5. JSONB 파싱 검증
+  const resultValidation = AnalysisResultSchema.safeParse(data.result);
+  if (!resultValidation.success) {
+    return failure(
+      500,
+      AnalysisErrorCode.ANALYSIS_DATA_CORRUPTED,
+      '분석 결과를 불러오는 중 오류가 발생했습니다',
+      resultValidation.error.format()
+    );
+  }
+
+  // 6. DTO 변환 및 반환
+  const response: AnalysisDetailResponse = {
+    id: data.id,
+    userId: data.user_id,
+    birthDate: data.birth_date,
+    birthTime: data.birth_time,
+    isLunar: data.is_lunar,
+    gender: data.gender,
+    modelUsed: data.model_used,
+    result: resultValidation.data,
+    createdAt: data.created_at,
+  };
+
+  return success(response);
+}
