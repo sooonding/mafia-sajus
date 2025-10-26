@@ -6,7 +6,7 @@ import { differenceInDays } from 'date-fns';
 import { apiClient, extractApiErrorMessage } from '@/lib/remote/api-client';
 import { APP_CONFIG } from '@/constants/app';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import type { Subscription, UsageInfo, PaymentHistory } from '../backend/schema';
 
 interface SubscriptionPageState {
@@ -142,11 +142,17 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useUser();
+  const { getToken } = useAuth();
 
   const { data: subscription = null, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ['subscription'],
     queryFn: async () => {
-      const res = await apiClient.get<{ data: Subscription | null }>('/api/subscription');
+      const token = await getToken();
+      const res = await apiClient.get<{ data: Subscription | null }>('/api/subscription', {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
       return res.data.data;
     },
   });
@@ -154,7 +160,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const { data: usageInfo = null, isLoading: isLoadingUsage } = useQuery({
     queryKey: ['usage'],
     queryFn: async () => {
-      const res = await apiClient.get<{ data: UsageInfo }>('/api/usage');
+      const token = await getToken();
+      const res = await apiClient.get<{ data: UsageInfo }>('/api/usage', {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
       return res.data.data;
     },
   });
@@ -162,7 +173,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const { data: paymentHistories = [], isLoading: isLoadingHistories } = useQuery({
     queryKey: ['payment-histories'],
     queryFn: async () => {
-      const res = await apiClient.get<{ data: PaymentHistory[] }>('/api/payment-histories');
+      const token = await getToken();
+      const res = await apiClient.get<{ data: PaymentHistory[] }>('/api/payment-histories', {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
       return res.data.data;
     },
   });
@@ -209,7 +225,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const cancelMutation = useMutation({
     mutationFn: async (reason?: string) => {
-      return apiClient.post('/api/subscription/cancel', { reason });
+      const token = await getToken();
+      return apiClient.post('/api/subscription/cancel', { reason }, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
@@ -231,7 +252,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const resumeMutation = useMutation({
     mutationFn: async () => {
-      return apiClient.post('/api/subscription/resume');
+      const token = await getToken();
+      return apiClient.post('/api/subscription/resume', {}, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });

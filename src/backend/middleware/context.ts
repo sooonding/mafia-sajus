@@ -14,9 +14,10 @@ const logger: AppLogger = {
 };
 
 export const withAppContext = () => {
-  const config = getAppConfig();
-
   return createMiddleware<AppEnv>(async (c, next) => {
+    // 런타임에만 config를 가져옴 (빌드 타임이 아닌)
+    const config = getAppConfig();
+
     c.set(contextKeys.logger, logger);
     c.set(contextKeys.config, config);
 

@@ -87,7 +87,7 @@ export const requireAuth = (): MiddlewareHandler<AppEnv> => {
               email,
               subscription_tier: 'free',
             })
-            .select('id')
+            .select('id, email')
             .single();
 
           if (createError || !newUser) {

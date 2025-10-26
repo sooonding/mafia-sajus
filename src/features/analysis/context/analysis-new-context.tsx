@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { apiClient, extractApiErrorMessage } from '@/lib/remote/api-client';
 import type { CreateAnalysisRequest } from '../backend/schema';
 import { APP_CONFIG } from '@/constants/app';
@@ -124,12 +125,18 @@ function analysisNewReducer(
 export function AnalysisNewProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(analysisNewReducer, initialState);
   const router = useRouter();
+  const { getToken } = useAuth();
 
   // React Query: 사용량 조회
   const { refetch: refetchUsage } = useQuery({
     queryKey: ['analysis', 'usage'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/analyses/usage');
+      const token = await getToken();
+      const response = await apiClient.get('/api/analyses/usage', {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
       return response.data as UsageResponse;
     },
     enabled: false, // 수동 조회
@@ -138,7 +145,12 @@ export function AnalysisNewProvider({ children }: { children: React.ReactNode })
   // React Query: 분석 요청
   const analysisMutation = useMutation({
     mutationFn: async (data: CreateAnalysisRequest) => {
-      const response = await apiClient.post('/api/analyses', data);
+      const token = await getToken();
+      const response = await apiClient.post('/api/analyses', data, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+        },
+      });
       return response.data as AnalysisResponse;
     },
   });

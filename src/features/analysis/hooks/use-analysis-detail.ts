@@ -1,15 +1,24 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@clerk/nextjs';
 import { apiClient } from '@/lib/remote/api-client';
 import type { AnalysisDetailResponse } from '../lib/dto';
 
 export function useAnalysisDetail(analysisId: string) {
+  const { getToken } = useAuth();
+
   return useQuery({
     queryKey: ['analysis', analysisId],
     queryFn: async () => {
+      const token = await getToken();
       const response = await apiClient.get<AnalysisDetailResponse>(
-        `/analyses/${analysisId}`
+        `/api/analyses/${analysisId}`,
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : undefined,
+          },
+        }
       );
       return response.data;
     },

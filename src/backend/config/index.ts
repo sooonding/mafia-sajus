@@ -23,22 +23,25 @@ export const getAppConfig = (): AppConfig => {
     return cachedConfig;
   }
 
+  // 빌드 타임에는 환경 변수 검증을 건너뜀
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+
   const parsed = envSchema.safeParse({
-    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
-    CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+    CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     CLERK_WEBHOOK_SIGNING_SECRET: process.env.CLERK_WEBHOOK_SIGNING_SECRET,
 
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 
     TOSS_SECRET_KEY: process.env.TOSS_SECRET_KEY,
-    TOSS_CLIENT_KEY: process.env.TOSS_CLIENT_KEY,
+    TOSS_CLIENT_KEY: process.env.TOSS_CLIENT_KEY || process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY,
     TOSS_WEBHOOK_SECRET: process.env.TOSS_WEBHOOK_SECRET,
   });
 
-  if (!parsed.success) {
+  if (!parsed.success && !isBuildTime) {
     const messages = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || 'config'}: ${issue.message}`)
       .join('; ');
