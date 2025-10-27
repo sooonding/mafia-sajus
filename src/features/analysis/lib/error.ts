@@ -11,7 +11,7 @@ export type AnalysisErrorType =
 export function getAnalysisErrorType(error: unknown): AnalysisErrorType {
   if (!error) return 'unknown';
 
-  // Axios Ðìx ½°
+  // Axios error handling
   if (isAxiosError(error)) {
     const code = (error.response?.data as any)?.error?.code;
 
@@ -23,13 +23,13 @@ export function getAnalysisErrorType(error: unknown): AnalysisErrorType {
       return 'not-found';
     }
 
-    // $¸Ìl $X
+    // Network error
     if (!error.response) {
       return 'network';
     }
   }
 
-  // | $¸Ìl Ðì
+  // Other network errors
   if (error instanceof Error && error.message.includes('Network')) {
     return 'network';
   }
