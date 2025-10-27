@@ -12,7 +12,7 @@ export function useAnalysisDetail(analysisId: string) {
     queryKey: ['analysis', analysisId],
     queryFn: async () => {
       const token = await getToken();
-      const response = await apiClient.get<AnalysisDetailResponse>(
+      const response = await apiClient.get<{ data: AnalysisDetailResponse }>(
         `/api/analyses/${analysisId}`,
         {
           headers: {
@@ -20,7 +20,7 @@ export function useAnalysisDetail(analysisId: string) {
           },
         }
       );
-      return response.data;
+      return response.data.data;
     },
     staleTime: 5 * 60 * 1000, // 5분
     gcTime: 10 * 60 * 1000, // 10분

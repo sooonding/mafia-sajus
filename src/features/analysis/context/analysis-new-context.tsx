@@ -132,12 +132,12 @@ export function AnalysisNewProvider({ children }: { children: React.ReactNode })
     queryKey: ['analysis', 'usage'],
     queryFn: async () => {
       const token = await getToken();
-      const response = await apiClient.get('/api/analyses/usage', {
+      const response = await apiClient.get<{ data: UsageResponse }>('/api/analyses/usage', {
         headers: {
           Authorization: token ? `Bearer ${token}` : undefined,
         },
       });
-      return response.data as UsageResponse;
+      return response.data.data;
     },
     enabled: false, // 수동 조회
   });
@@ -146,12 +146,12 @@ export function AnalysisNewProvider({ children }: { children: React.ReactNode })
   const analysisMutation = useMutation({
     mutationFn: async (data: CreateAnalysisRequest) => {
       const token = await getToken();
-      const response = await apiClient.post('/api/analyses', data, {
+      const response = await apiClient.post<{ data: AnalysisResponse }>('/api/analyses', data, {
         headers: {
           Authorization: token ? `Bearer ${token}` : undefined,
         },
       });
-      return response.data as AnalysisResponse;
+      return response.data.data;
     },
   });
 

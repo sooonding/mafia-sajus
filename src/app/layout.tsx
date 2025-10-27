@@ -16,7 +16,7 @@ export default async function RootLayout({
   return (
     <ClerkProvider>
       <html lang="ko" suppressHydrationWarning>
-        <body className="antialiased font-sans">
+        <body className="antialiased font-sans" suppressHydrationWarning>
           <Providers>{children}</Providers>
         </body>
       </html>

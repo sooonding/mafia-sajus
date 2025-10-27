@@ -25,7 +25,7 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
 
     const subscription = await getSubscription(supabase, userId);
 
-    return c.json(subscription);
+    return respond(c, success(subscription));
   });
 
   app.get('/api/usage', requireAuth(), async (c) => {
@@ -34,9 +34,9 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
 
     try {
       const usageInfo = await getUsageInfo(supabase, userId);
-      return c.json(usageInfo);
+      return respond(c, success(usageInfo));
     } catch (error: any) {
-      return c.json(failure(500, 'USAGE_FETCH_ERROR', error.message), 500);
+      return respond(c, failure(500, 'USAGE_FETCH_ERROR', error.message));
     }
   });
 
@@ -49,7 +49,7 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
 
     const histories = await getPaymentHistories(supabase, userId, page, limit);
 
-    return c.json(histories);
+    return respond(c, success(histories));
   });
 
   app.post(
@@ -69,7 +69,7 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
           authKey,
           config.toss.secretKey
         );
-        return c.json(success({ message: 'Pro 구독이 시작되었습니다' }));
+        return respond(c, success({ message: 'Pro 구독이 시작되었습니다' }));
       } catch (error: any) {
         if (error.code === subscriptionErrorCodes.subscriptionAlreadyActive) {
           return respond(c, failure(400, error.code, error.message));
@@ -97,11 +97,11 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
 
       try {
         const result = await cancelSubscription(supabase, userId, reason);
-        return c.json({
+        return respond(c, success({
           status: 'canceled',
           nextBillingDate: result.nextBillingDate,
           message: '구독이 취소되었습니다',
-        });
+        }));
       } catch (error: any) {
         if (error.code === subscriptionErrorCodes.subscriptionNotActive) {
           return respond(c, failure(400, error.code, error.message));
@@ -120,11 +120,11 @@ export const registerSubscriptionRoutes = (app: Hono<AppEnv>) => {
 
     try {
       const result = await resumeSubscription(supabase, userId);
-      return c.json({
+      return respond(c, success({
         status: 'active',
         nextBillingDate: result.nextBillingDate,
         message: '구독이 재개되었습니다',
-      });
+      }));
     } catch (error: any) {
       if (error.code === subscriptionErrorCodes.subscriptionExpired) {
         return respond(c, failure(400, error.code, error.message));

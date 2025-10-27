@@ -66,6 +66,51 @@ analysisRouter.get('/analyses', requireAuth(), zValidator('query', querySchema),
 });
 
 /**
+ * GET /api/analyses/usage
+ *
+ * 사용자의 분석 사용량 조회
+ */
+analysisRouter.get('/analyses/usage', requireAuth(), async (c) => {
+  const userId = c.get('userId');
+  if (!userId) {
+    return respond(
+      c,
+      failure(401, CommonErrorCode.UNAUTHORIZED, '인증이 필요합니다')
+    );
+  }
+
+  const supabase = c.get('supabase');
+  const logger = c.get('logger');
+
+  try {
+    const usageInfo = await checkUsageLimit(supabase, userId);
+
+    // 구독 티어 조회
+    const { data: user } = await supabase
+      .from('users')
+      .select('subscription_tier')
+      .eq('id', userId)
+      .single();
+
+    const subscriptionTier = (user?.subscription_tier as 'free' | 'pro') || 'free';
+
+    return respond(c, success({
+      subscriptionTier,
+      used: usageInfo.used,
+      limit: usageInfo.limit,
+      remaining: usageInfo.remaining,
+      nextResetDate: usageInfo.nextResetDate?.toISOString(),
+    }));
+  } catch (error) {
+    logger.error('Failed to fetch usage', error);
+    return respond(
+      c,
+      failure(500, CommonErrorCode.INTERNAL_ERROR, '사용량 조회 중 오류가 발생했습니다')
+    );
+  }
+});
+
+/**
  * GET /api/analyses/:id
  *
  * 특정 분석 상세 조회 (상세보기 페이지)
@@ -146,48 +191,3 @@ analysisRouter.post(
     return respond(c, result);
   }
 );
-
-/**
- * GET /api/analyses/usage
- *
- * 사용자의 분석 사용량 조회
- */
-analysisRouter.get('/analyses/usage', requireAuth(), async (c) => {
-  const userId = c.get('userId');
-  if (!userId) {
-    return respond(
-      c,
-      failure(401, CommonErrorCode.UNAUTHORIZED, '인증이 필요합니다')
-    );
-  }
-
-  const supabase = c.get('supabase');
-  const logger = c.get('logger');
-
-  try {
-    const usageInfo = await checkUsageLimit(supabase, userId);
-
-    // 구독 티어 조회
-    const { data: user } = await supabase
-      .from('users')
-      .select('subscription_tier')
-      .eq('id', userId)
-      .single();
-
-    const subscriptionTier = (user?.subscription_tier as 'free' | 'pro') || 'free';
-
-    return c.json({
-      subscriptionTier,
-      used: usageInfo.used,
-      limit: usageInfo.limit,
-      remaining: usageInfo.remaining,
-      nextResetDate: usageInfo.nextResetDate?.toISOString(),
-    });
-  } catch (error) {
-    logger.error('Failed to fetch usage', error);
-    return respond(
-      c,
-      failure(500, CommonErrorCode.INTERNAL_ERROR, '사용량 조회 중 오류가 발생했습니다')
-    );
-  }
-});
