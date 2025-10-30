@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAnalysis, getAnalysisById } from './service';
+import {
+  createAnalysis,
+  getAnalysisById,
+  getAnalysisHistory,
+  getAnalysisDetail,
+} from './service';
 import { checkUsageLimit } from '@/backend/services/usage';
 import { callGeminiAnalysis } from '@/backend/integrations/gemini/client';
 import { AnalysisErrorCode } from './error';
@@ -426,5 +431,279 @@ describe('getAnalysisById', () => {
     await expect(getAnalysisById(mockSupabase, testUserId, testAnalysisId)).rejects.toThrow(
       'ANALYSIS_FORBIDDEN'
     );
+  });
+});
+
+describe('getAnalysisHistory', () => {
+  let mockSupabase: jest.Mocked<SupabaseClient>;
+  const testUserId = 'user-uuid-1234';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockSupabase = {
+      from: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      range: jest.fn(),
+    } as any;
+  });
+
+  test('페이지네이션을 포함한 분석 이력 조회 성공', async () => {
+    // Arrange
+    const mockAnalyses = [
+      {
+        id: 'analysis-1',
+        user_id: testUserId,
+        birth_date: '1990-01-01',
+        birth_time: '10:00',
+        is_lunar: false,
+        gender: 'male',
+        result: { basic: {}, personality: {}, fortune: {}, advice: {} },
+        model_used: 'gemini-2.5-flash',
+        created_at: '2025-10-29T10:00:00Z',
+      },
+      {
+        id: 'analysis-2',
+        user_id: testUserId,
+        birth_date: '1990-01-02',
+        birth_time: '11:00',
+        is_lunar: true,
+        gender: 'female',
+        result: { basic: {}, personality: {}, fortune: {}, advice: {} },
+        model_used: 'gemini-2.5-pro',
+        created_at: '2025-10-28T10:00:00Z',
+      },
+    ];
+
+    // count 조회
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({
+        count: 10,
+        error: null,
+      }),
+    });
+
+    // 실제 데이터 조회
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce(mockSupabase);
+    (mockSupabase.range as jest.Mock).mockResolvedValue({
+      data: mockAnalyses,
+      error: null,
+    });
+
+    // Act
+    const result = await getAnalysisHistory(mockSupabase, testUserId, 1, 5);
+
+    // Assert
+    expect(result.data).toHaveLength(2);
+    expect(result.total).toBe(10);
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(2);
+    expect(result.data[0].id).toBe('analysis-1');
+  });
+
+  test('빈 결과를 반환할 수 있어야 한다', async () => {
+    // Arrange
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({
+        count: 0,
+        error: null,
+      }),
+    });
+
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce(mockSupabase);
+    (mockSupabase.range as jest.Mock).mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    // Act
+    const result = await getAnalysisHistory(mockSupabase, testUserId, 1, 10);
+
+    // Assert
+    expect(result.data).toHaveLength(0);
+    expect(result.total).toBe(0);
+    expect(result.totalPages).toBe(0);
+  });
+
+  test('count 조회 실패 시 에러를 throw해야 한다', async () => {
+    // Arrange
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({
+        count: null,
+        error: { message: 'Database error' },
+      }),
+    });
+
+    // Act & Assert
+    await expect(getAnalysisHistory(mockSupabase, testUserId, 1, 10)).rejects.toThrow(
+      'FAILED_TO_COUNT_ANALYSES'
+    );
+  });
+
+  test('데이터 조회 실패 시 에러를 throw해야 한다', async () => {
+    // Arrange
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce({
+      eq: jest.fn().mockResolvedValue({
+        count: 5,
+        error: null,
+      }),
+    });
+
+    (mockSupabase.select as jest.Mock).mockReturnValueOnce(mockSupabase);
+    (mockSupabase.range as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: 'Failed to fetch data' },
+    });
+
+    // Act & Assert
+    await expect(getAnalysisHistory(mockSupabase, testUserId, 1, 10)).rejects.toThrow(
+      'FAILED_TO_FETCH_ANALYSES'
+    );
+  });
+});
+
+describe('getAnalysisDetail', () => {
+  let mockSupabase: jest.Mocked<SupabaseClient>;
+  const testUserId = 'user-uuid-1234';
+  const testAnalysisId = 'analysis-uuid-5678';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockSupabase = {
+      from: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn(),
+    } as any;
+  });
+
+  test('분석 상세 조회 성공', async () => {
+    // Arrange
+    const mockAnalysis = {
+      id: testAnalysisId,
+      user_id: testUserId,
+      birth_date: '1990-01-01',
+      birth_time: '10:00',
+      is_lunar: false,
+      gender: 'male',
+      result: {
+        basic: {
+          천간지지: '경오 무인 갑진 을사',
+          오행분석: '화 토가 강함',
+        },
+        personality: {
+          특성: '활발함',
+          장단점: '리더십 강함',
+        },
+        fortune: {
+          대운: '좋음',
+          세운: '보통',
+          직업운: '창업 적합',
+          재물운: '재테크 좋음',
+          건강운: '양호',
+          연애운: '좋은 인연',
+          대인관계운: '원만',
+        },
+        advice: {
+          긍정적방향: '긍정적 마인드',
+          주의점: '급한 마음 주의',
+        },
+      },
+      model_used: 'gemini-2.5-flash',
+      created_at: '2025-10-29T10:00:00Z',
+    };
+
+    (mockSupabase.single as jest.Mock).mockResolvedValue({
+      data: mockAnalysis,
+      error: null,
+    });
+
+    // Act
+    const result = await getAnalysisDetail(mockSupabase, testAnalysisId, testUserId);
+
+    // Assert
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.analysis.id).toBe(testAnalysisId);
+      expect(result.data.analysis.userId).toBe(testUserId);
+      expect(result.data.analysis.result.basic.천간지지).toBe('경오 무인 갑진 을사');
+    }
+  });
+
+  test('분석을 찾을 수 없으면 404 에러를 반환해야 한다', async () => {
+    // Arrange
+    (mockSupabase.single as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: 'Not found' },
+    });
+
+    // Act
+    const result = await getAnalysisDetail(mockSupabase, testAnalysisId, testUserId);
+
+    // Assert
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(404);
+      expect(result.error.code).toBe(AnalysisErrorCode.ANALYSIS_NOT_FOUND);
+    }
+  });
+
+  test('다른 사용자의 분석 조회 시 403 에러를 반환해야 한다', async () => {
+    // Arrange
+    (mockSupabase.single as jest.Mock).mockResolvedValue({
+      data: {
+        id: testAnalysisId,
+        user_id: 'different-user-id',
+        birth_date: '1990-01-01',
+        result: {
+          basic: {},
+          personality: {},
+          fortune: {},
+          advice: {},
+        },
+        created_at: '2025-10-29T10:00:00Z',
+      },
+      error: null,
+    });
+
+    // Act
+    const result = await getAnalysisDetail(mockSupabase, testAnalysisId, testUserId);
+
+    // Assert
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(403);
+      expect(result.error.code).toBe(AnalysisErrorCode.ANALYSIS_FORBIDDEN);
+    }
+  });
+
+  test('JSONB 파싱 실패 시 500 에러를 반환해야 한다', async () => {
+    // Arrange
+    (mockSupabase.single as jest.Mock).mockResolvedValue({
+      data: {
+        id: testAnalysisId,
+        user_id: testUserId,
+        birth_date: '1990-01-01',
+        result: {
+          // 잘못된 구조 - basic, personality, fortune, advice 필드 누락
+          invalid: 'data',
+        },
+        created_at: '2025-10-29T10:00:00Z',
+      },
+      error: null,
+    });
+
+    // Act
+    const result = await getAnalysisDetail(mockSupabase, testAnalysisId, testUserId);
+
+    // Assert
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(500);
+      expect(result.error.code).toBe(AnalysisErrorCode.ANALYSIS_DATA_CORRUPTED);
+    }
   });
 });

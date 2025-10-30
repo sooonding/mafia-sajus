@@ -12,7 +12,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm run test:unit:*)",
       "Bash(npx playwright:*)",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []
