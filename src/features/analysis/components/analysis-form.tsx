@@ -99,6 +99,7 @@ export function AnalysisForm() {
                 <Input
                   type="time"
                   {...field}
+                  value={field.value || ''}
                   disabled={birthTimeUnknown || usageExceeded}
                   placeholder="HH:MM"
                 />

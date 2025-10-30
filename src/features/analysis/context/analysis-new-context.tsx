@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { apiClient, extractApiErrorMessage } from '@/lib/remote/api-client';
@@ -126,6 +126,7 @@ export function AnalysisNewProvider({ children }: { children: React.ReactNode })
   const [state, dispatch] = useReducer(analysisNewReducer, initialState);
   const router = useRouter();
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
 
   // React Query: 사용량 조회
   const { refetch: refetchUsage } = useQuery({
@@ -152,6 +153,11 @@ export function AnalysisNewProvider({ children }: { children: React.ReactNode })
         },
       });
       return response.data.data;
+    },
+    onSuccess: () => {
+      // 분석 생성 후 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['usageInfo'] });
     },
   });
 

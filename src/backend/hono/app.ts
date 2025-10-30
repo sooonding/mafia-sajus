@@ -8,6 +8,7 @@ import { dashboardRouter } from '@/features/dashboard/backend/route';
 import { analysisRouter } from '@/features/analysis/backend/route';
 import { registerSubscriptionRoutes } from '@/features/subscription/backend/route';
 import { registerWebhookRoutes } from '@/features/subscription/backend/webhook';
+import { registerBillingCallbackRoutes } from '@/features/subscription/backend/billing-callback';
 import type { AppEnv } from '@/backend/hono/context';
 
 let singletonApp: Hono<AppEnv> | null = null;
@@ -33,6 +34,7 @@ export const createHonoApp = () => {
   // 구독 관련 라우터 등록
   registerSubscriptionRoutes(app);
   registerWebhookRoutes(app);
+  registerBillingCallbackRoutes(app);
 
   singletonApp = app;
 

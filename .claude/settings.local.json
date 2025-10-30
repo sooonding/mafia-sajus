@@ -9,7 +9,10 @@
       "Bash(cat:*)",
       "Bash(npm run build:*)",
       "Bash(node --version:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm run test:coverage:*)"
     ],
     "deny": [],
     "ask": []
